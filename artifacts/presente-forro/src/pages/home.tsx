@@ -10,7 +10,9 @@ import {
   Heart,
   ImagePlus,
   Info,
+  Mic,
   Music2,
+  Paperclip,
   Pause,
   Play,
   RotateCcw,
@@ -26,6 +28,7 @@ import {
 type Provider = 'auto' | 'groq' | 'gemini' | 'mistral';
 type Tone = 'romantic' | 'leve' | 'poetic';
 const MEMORY_KEY = 'presente-forro-memories';
+const ATTACHMENTS_KEY = 'presente-forro-attachments';
 
 const playlist = [
   { title: 'Anunciação', artist: 'Alceu Valença', duration: '03:57', color: '#f2bd5d' },
@@ -65,9 +68,15 @@ function Home() {
   const [dedication, setDedication] = useState<{ title: string; text: string } | null>(null);
   const [memories, setMemories] = useState<string[]>([]);
   const [newMemory, setNewMemory] = useState('');
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [provider, setProvider] = useState<Provider>('auto');
   const [tone, setTone] = useState<Tone>('leve');
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<number | null>(null);
   const dedicationMutation = useGenerateDedication();
 
   useEffect(() => {
@@ -85,6 +94,13 @@ function Home() {
           setMemories(parsed.slice(0, 12));
         }
       }
+      const savedAttachments = window.localStorage.getItem(ATTACHMENTS_KEY);
+      if (savedAttachments) {
+        const parsedAttachments: unknown = JSON.parse(savedAttachments);
+        if (Array.isArray(parsedAttachments) && parsedAttachments.every((item) => typeof item === 'string')) {
+          setAttachments(parsedAttachments.slice(0, 6));
+        }
+      }
     } catch {
       setMemories([]);
     }
@@ -94,6 +110,15 @@ function Home() {
     window.localStorage.setItem(MEMORY_KEY, JSON.stringify(memories));
   }, [memories]);
 
+  useEffect(() => {
+    window.localStorage.setItem(ATTACHMENTS_KEY, JSON.stringify(attachments));
+  }, [attachments]);
+
+  useEffect(() => () => {
+    if (recordingTimerRef.current) window.clearInterval(recordingTimerRef.current);
+    recorderRef.current?.stream.getTracks().forEach((track) => track.stop());
+  }, []);
+
   const handleCoverChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -102,12 +127,54 @@ function Home() {
     reader.readAsDataURL(file);
   };
 
+  const handleAttachments = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    setAttachments((current) => [...current, ...files.map((file) => file.name)].slice(0, 6));
+    event.target.value = '';
+  };
+
+  const startRecording = async () => {
+    if (isRecording) return;
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setShareNotice('Seu navegador não permite gravação de voz neste dispositivo.');
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      recorderRef.current = recorder;
+      recorder.start();
+      setIsRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = window.setInterval(() => {
+        setRecordingSeconds((current) => {
+          if (current >= 4) {
+            window.setTimeout(() => recorder.stop(), 0);
+            return 5;
+          }
+          return current + 1;
+        });
+      }, 1000);
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+        setIsRecording(false);
+        setRecordingSeconds(0);
+        if (recordingTimerRef.current) window.clearInterval(recordingTimerRef.current);
+        setAttachments((current) => [...current, 'Memória de voz · 5s'].slice(0, 6));
+        setShareNotice('Áudio de 5 segundos anexado à memória.');
+      };
+    } catch {
+      setShareNotice('Não foi possível acessar o microfone. Verifique a permissão do navegador.');
+    }
+  };
+
   const handleGenerate = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const values = new FormData(event.currentTarget);
     const recipientName = String(values.get('recipientName') || '').trim();
     const senderName = String(values.get('senderName') || '').trim();
     const details = String(values.get('details') || '').trim();
+    const attachmentContext = attachments.length ? ` Arquivos anexados à memória: ${attachments.join(', ')}.` : '';
     if (!recipientName) return;
     dedicationMutation.mutate(
       {
@@ -116,7 +183,7 @@ function Home() {
           senderName,
           tone,
           provider,
-          details,
+          details: `${details}${attachmentContext}`.slice(0, 600),
           memories,
         },
       },
@@ -350,6 +417,16 @@ function Home() {
                 <label className="block"><span className="mb-2 block font-mono-brand text-[10px] uppercase tracking-[.16em] text-[hsl(var(--muted-foreground))]">seu nome</span><input name="senderName" maxLength={80} defaultValue="" data-testid="input-sender-name" className="w-full rounded-xl border border-[hsl(var(--input))] bg-[hsl(var(--card))] px-4 py-3 text-sm text-[hsl(var(--foreground))] outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--primary))]" placeholder="Assine no final, se quiser" /></label>
               </div>
               <label className="mt-5 block"><span className="mb-2 block font-mono-brand text-[10px] uppercase tracking-[.16em] text-[hsl(var(--muted-foreground))]">um detalhe só de vocês</span><textarea name="details" maxLength={600} data-testid="input-dedication-details" className="min-h-32 w-full resize-y rounded-xl border border-[hsl(var(--input))] bg-[hsl(var(--card))] px-4 py-3 text-sm leading-6 text-[hsl(var(--foreground))] outline-none transition-colors placeholder:text-[hsl(var(--muted-foreground))] focus:border-[hsl(var(--primary))]" placeholder="Uma dança, uma viagem, o jeito que ela ri, algo que você deseja para ela..." /></label>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <button type="button" onClick={startRecording} disabled={isRecording} data-testid="button-record-memory" className={`flex items-center gap-2 rounded-full border px-3.5 py-2.5 text-xs font-bold transition-colors ${isRecording ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.12)] text-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:border-[hsl(var(--accent))] hover:text-[hsl(var(--accent))]'}`}>
+                  <Mic className={`size-4 ${isRecording ? 'animate-pulse' : ''}`} /> {isRecording ? `Gravando ${recordingSeconds}/5s` : 'Gravar memória · 5s'}
+                </button>
+                <button type="button" onClick={() => attachmentInputRef.current?.click()} data-testid="button-add-attachment" className="flex items-center gap-2 rounded-full border border-[hsl(var(--border))] px-3.5 py-2.5 text-xs font-bold text-[hsl(var(--muted-foreground))] transition-colors hover:border-[hsl(var(--accent))] hover:text-[hsl(var(--accent))]">
+                  <Paperclip className="size-4" /> Anexar arquivo
+                </button>
+                <input ref={attachmentInputRef} onChange={handleAttachments} type="file" accept="image/*,audio/*,.txt,.pdf" multiple className="hidden" />
+              </div>
+              {!!attachments.length && <div className="mt-3 flex flex-wrap gap-2">{attachments.map((attachment) => <span key={attachment} className="inline-flex items-center gap-2 rounded-full bg-[hsl(var(--secondary))] px-3 py-1.5 text-[11px] text-[hsl(var(--muted-foreground))]"><Paperclip className="size-3 text-[hsl(var(--accent))]" /><span className="max-w-[13rem] truncate">{attachment}</span><button type="button" onClick={() => setAttachments((current) => current.filter((item) => item !== attachment))} aria-label={`Remover anexo: ${attachment}`} className="text-base leading-none hover:text-[hsl(var(--primary))]">×</button></span>)}</div>}
               <div className="mt-6 grid gap-6 sm:grid-cols-2">
                 <fieldset><legend className="mb-2 font-mono-brand text-[10px] uppercase tracking-[.16em] text-[hsl(var(--muted-foreground))]">tom da mensagem</legend><div className="flex flex-wrap gap-2">{(Object.keys(toneLabels) as Tone[]).map((item) => <button type="button" key={item} onClick={() => setTone(item)} data-testid={`button-tone-${item}`} className={`rounded-full border px-3 py-2 text-xs transition-colors ${tone === item ? 'border-[hsl(var(--primary))] bg-[hsl(var(--primary)/.15)] text-[hsl(var(--primary))]' : 'border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]'}`}>{toneLabels[item]}</button>)}</div></fieldset>
                 <fieldset><legend className="mb-2 font-mono-brand text-[10px] uppercase tracking-[.16em] text-[hsl(var(--muted-foreground))]">inteligência por trás</legend><select value={provider} onChange={(event) => setProvider(event.target.value as Provider)} data-testid="select-ai-provider" className="w-full appearance-none rounded-xl border border-[hsl(var(--input))] bg-[hsl(var(--card))] px-3 py-2.5 text-xs text-[hsl(var(--foreground))] outline-none focus:border-[hsl(var(--primary))]">{(Object.keys(providerLabels) as Provider[]).map((item) => <option key={item} value={item}>{providerLabels[item]}</option>)}</select></fieldset>
