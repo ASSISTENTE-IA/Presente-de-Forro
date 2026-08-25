@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: openai
+    description: AI-powered dedication generation
 paths:
   /healthz:
     get:
@@ -24,6 +26,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /openai/dedication:
+    post:
+      operationId: generateDedication
+      tags: [openai]
+      summary: Generate a personalized dedication
+      description: Creates a warm, respectful romantic dedication based on the recipient's interests.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DedicationInput"
+      responses:
+        "200":
+          description: Generated dedication
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dedication"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +66,40 @@ components:
           type: string
       required:
         - status
+    DedicationInput:
+      type: object
+      properties:
+        recipientName:
+          type: string
+          minLength: 1
+          maxLength: 80
+        senderName:
+          type: string
+          maxLength: 80
+        tone:
+          type: string
+          enum: [romantic, leve, poetic]
+        details:
+          type: string
+          maxLength: 600
+      required:
+        - recipientName
+        - tone
+    Dedication:
+      type: object
+      properties:
+        text:
+          type: string
+        title:
+          type: string
+      required:
+        - text
+        - title
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
 

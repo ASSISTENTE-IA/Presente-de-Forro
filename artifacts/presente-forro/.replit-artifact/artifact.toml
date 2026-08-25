@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Presente de Forró"
+description = "Uma experiência digital personalizada para presentear uma dançarina de forró, com música, mensagem, capa fotográfica substituível e uma dedicatória especial."
+version = "1.0.0"
+id = "artifacts/presente-forro"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25000
+
+[services.development]
+run = "pnpm --filter @workspace/presente-forro run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/presente-forro", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/presente-forro/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25000"
+BASE_PATH = "/"
