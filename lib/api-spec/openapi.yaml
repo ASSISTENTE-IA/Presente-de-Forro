@@ -79,9 +79,20 @@ components:
         tone:
           type: string
           enum: [romantic, leve, poetic]
+        provider:
+          type: string
+          enum: [auto, groq, gemini, mistral]
+          default: auto
         details:
           type: string
           maxLength: 600
+        memories:
+          type: array
+          maxItems: 12
+          items:
+            type: string
+            minLength: 1
+            maxLength: 180
       required:
         - recipientName
         - tone

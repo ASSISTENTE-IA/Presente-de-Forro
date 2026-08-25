@@ -8,6 +8,7 @@
 
 export * from './dedication';
 export * from './dedicationInput';
+export * from './dedicationInputProvider';
 export * from './dedicationInputTone';
 export * from './error';
 export * from './healthStatus';

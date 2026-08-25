@@ -25,7 +25,12 @@ export const generateDedicationBodyRecipientNameMax = 80;
 
 export const generateDedicationBodySenderNameMax = 80;
 
+export const generateDedicationBodyProviderDefault = `auto`;
 export const generateDedicationBodyDetailsMax = 600;
+
+export const generateDedicationBodyMemoriesItemMax = 180;
+
+export const generateDedicationBodyMemoriesMax = 12;
 
 
 
@@ -33,7 +38,9 @@ export const GenerateDedicationBody = zod.object({
   "recipientName": zod.string().min(1).max(generateDedicationBodyRecipientNameMax),
   "senderName": zod.string().max(generateDedicationBodySenderNameMax).optional(),
   "tone": zod.enum(['romantic', 'leve', 'poetic']),
-  "details": zod.string().max(generateDedicationBodyDetailsMax).optional()
+  "provider": zod.enum(['auto', 'groq', 'gemini', 'mistral']).default(generateDedicationBodyProviderDefault),
+  "details": zod.string().max(generateDedicationBodyDetailsMax).optional(),
+  "memories": zod.array(zod.string().min(1).max(generateDedicationBodyMemoriesItemMax)).max(generateDedicationBodyMemoriesMax).optional()
 })
 
 export const GenerateDedicationResponse = zod.object({

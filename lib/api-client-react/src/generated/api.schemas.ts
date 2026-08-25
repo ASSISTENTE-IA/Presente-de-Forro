@@ -18,6 +18,16 @@ export const DedicationInputTone = {
   poetic: 'poetic',
 } as const;
 
+export type DedicationInputProvider = typeof DedicationInputProvider[keyof typeof DedicationInputProvider];
+
+
+export const DedicationInputProvider = {
+  auto: 'auto',
+  groq: 'groq',
+  gemini: 'gemini',
+  mistral: 'mistral',
+} as const;
+
 export interface DedicationInput {
   /**
      * @minLength 1
@@ -27,8 +37,15 @@ export interface DedicationInput {
   /** @maxLength 80 */
   senderName?: string;
   tone: DedicationInputTone;
+  provider?: DedicationInputProvider;
   /** @maxLength 600 */
   details?: string;
+  /**
+     * @maxItems 12
+     * @items.minLength 1
+     * @items.maxLength 180
+     */
+  memories?: string[];
 }
 
 export interface Dedication {

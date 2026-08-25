@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DedicationInputProvider } from './dedicationInputProvider';
 import type { DedicationInputTone } from './dedicationInputTone';
 
 export interface DedicationInput {
@@ -16,6 +17,13 @@ export interface DedicationInput {
   /** @maxLength 80 */
   senderName?: string;
   tone: DedicationInputTone;
+  provider?: DedicationInputProvider;
   /** @maxLength 600 */
   details?: string;
+  /**
+     * @maxItems 12
+     * @items.minLength 1
+     * @items.maxLength 180
+     */
+  memories?: string[];
 }
